@@ -1,4 +1,4 @@
-TOOLS	=	readself pupunpack unself sceverify
+TOOLS	=	readself pupunpack unself sceverify scekrit
 TOOLS	+=	makeself norunpack puppack unpkg pkg
 TOOLS	+=	cosunpkg cospkg
 COMMON	=	tools.o aes.o sha1.o ec.o bn.o
@@ -6,7 +6,7 @@ DEPS	=	Makefile tools.h types.h
 
 CC	=	gcc
 CFLAGS	=	-g -O2 -Wall -W
-LDFLAGS =	-lz
+LDFLAGS =	-lz -lgmp
 
 OBJS	= $(COMMON) $(addsuffix .o, $(TOOLS))
 

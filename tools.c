@@ -4,7 +4,6 @@
 // http://www.gnu.org/licenses/old-licenses/gpl-2.0.txt
 
 #include <sys/types.h>
-#include <sys/mman.h>
 #include <stdio.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -14,6 +13,12 @@
 #include <stdlib.h>
 #include <zlib.h>
 #include <dirent.h>
+
+#ifdef WIN32
+#include "mingw_mmap.h"
+#else
+#include <sys/mman.h>
+#endif
 
 #include "tools.h"
 #include "aes.h"

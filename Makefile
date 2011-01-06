@@ -4,19 +4,23 @@ TOOLS	+=	cosunpkg cospkg
 COMMON	=	tools.o aes.o sha1.o ec.o bn.o
 DEPS	=	Makefile tools.h types.h
 
+ifeq ($(findstring MINGW, $(shell uname -s)), MINGW)
+COMMON  +=      mingw_mmap.o
+endif
+
 CC	=	gcc
 CFLAGS	=	-g -O2 -Wall -W
-LDFLAGS =	-lz -lgmp
+LDLIBS  =	-lz -lgmp
 
 OBJS	= $(COMMON) $(addsuffix .o, $(TOOLS))
 
 all: $(TOOLS)
 
 $(TOOLS): %: %.o $(COMMON) $(DEPS)
-	$(CC) $(CFLAGS) -o $@ $< $(COMMON) $(LDFLAGS)
+	$(CC) $(CFLAGS) -o $@ $< $(COMMON) $(LDLIBS) 
 
 $(OBJS): %.o: %.c $(DEPS)
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 clean:
-	-rm -f $(OBJS) $(TOOLS)
+	-rm -f $(OBJS) $(TOOLS) *.exe

@@ -8,6 +8,12 @@
 
 #include "tools.h"
 
+#ifdef WIN32
+#define MKDIR(x,y) mkdir(x);
+#else
+#define MKDIR(x,y) mkdir(x,y)
+#endif
+
 static u8 *pup = NULL;
 static u8 pup_hmac[0x40];
 static int got_hmac = -1;
@@ -134,7 +140,7 @@ int main(int argc, char *argv[])
 
 	if(pup != NULL)
 	{
-		if (mkdir(argv[2], 0777) < 0)
+		if (MKDIR(argv[2], 0777) < 0)
 			fail("mkdir(%s)", argv[2]);
 		if (chdir(argv[2]) < 0)
 			fail("chdir(%s)", argv[2]);

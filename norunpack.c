@@ -9,12 +9,17 @@
 #include <unistd.h>
 #include "tools.h"
 
+#ifdef WIN32
+#define MKDIR(x,y) mkdir(x);
+#else
+#define MKDIR(x,y) mkdir(x,y)
+#endif
+
 static u8 *nor = NULL;
 
 static void new_dir(const char *n)
 {
-	mkdir(n, 0777);
-
+	MKDIR(n, 0777);
 	if (chdir(n) < 0)
 		fail("chdir");
 }

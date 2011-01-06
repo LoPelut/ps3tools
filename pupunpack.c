@@ -9,7 +9,7 @@
 #include "tools.h"
 
 #ifdef WIN32
-#define MKDIR(x,y) mkdir(x);
+#define MKDIR(x,y) mkdir(x)
 #else
 #define MKDIR(x,y) mkdir(x,y)
 #endif

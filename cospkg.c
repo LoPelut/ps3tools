@@ -49,12 +49,9 @@ static void get_files(const char *d)
 
 		if (strcmp(de->d_name, "..") == 0)
 			continue;
-		
+
 		if (strlen(de->d_name) > 0x20)
 			fail("name too long: %s", de->d_name);
-
-		if (de->d_type != DT_REG)
-			fail("not a file: %s", de->d_name);
 
 		snprintf(path, sizeof path, "%s/%s", d, de->d_name);
 
@@ -63,6 +60,10 @@ static void get_files(const char *d)
 
 		if (stat(path, &st) < 0)
 			fail("cannot stat %s", path);
+
+		if (!S_ISREG(st.st_mode))
+			fail("not a file: %s", de->d_name);
+
 		files[i].size = st.st_size;
 
 		files[i].ptr = mmap_file(path);
@@ -71,7 +72,7 @@ static void get_files(const char *d)
 
 		files[i].offset = offset;
 		offset = round_up(offset + files[i].size, 0x20);
-	
+
 		i++;
 		n_files++;
 	}

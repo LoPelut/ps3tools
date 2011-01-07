@@ -23,7 +23,7 @@ static u64 dec_size;
 static u32 meta_offset;
 static u32 n_sections;
 
-static void unpack_content(void)
+static void unpack_content(const char *name)
 {
 	u8 *tmp;
 	u8 *decompressed;
@@ -37,12 +37,16 @@ static void unpack_content(void)
 	size = be64(tmp + 8);
 	size_real = dec_size - 0x80;
 
-	decompressed = malloc(size_real);
-	memset(decompressed, 0xaa, size_real);
+	if (be32(tmp + 0x2c) == 0x2) {
+		decompressed = malloc(size_real);
+		memset(decompressed, 0xaa, size_real);
 
-	decompress(pkg + offset, size, decompressed, size_real);
+		decompress(pkg + offset, size, decompressed, size_real);
 
-	memcpy_to_file("content", decompressed, size_real);
+		memcpy_to_file(name, decompressed, size_real);
+	} else {
+		memcpy_to_file(name, pkg + offset, size);
+	}
 }
 
 static void unpack_info(u32 i)
@@ -69,7 +73,7 @@ static void unpack_pkg(void)
 {
 	unpack_info(0);
 	unpack_info(1);
-	unpack_content();
+	unpack_content("content");
 }
 
 static void decrypt_pkg(void)
@@ -107,18 +111,28 @@ static void decrypt_pkg(void)
 
 int main(int argc, char *argv[])
 {
-	if (argc != 3)
-		fail("usage: unpkg filename.pkg target");
+	if (argc == 3) {
+		pkg = mmap_file(argv[1]);
 
-	pkg = mmap_file(argv[1]);
+		MKDIR(argv[2], 0777);
 
-	MKDIR(argv[2], 0777);
+		if (chdir(argv[2]) != 0)
+			fail("chdir");
 
-	if (chdir(argv[2]) != 0)
-		fail("chdir");
+		decrypt_pkg();
+		unpack_pkg();
+	} else if (argc == 4) {
+		if (strcmp(argv[1], "-s") != 0)
+			fail("invalid option: %s", argv[1]);
 
-	decrypt_pkg();
-	unpack_pkg();
+		pkg = mmap_file(argv[2]);
+
+		decrypt_pkg();
+		unpack_content(argv[3]);
+	} else {
+		fail("usage: unpkg [-s] filename.pkg target");
+	}
+
 
 	return 0;
 }

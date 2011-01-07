@@ -383,8 +383,15 @@ static struct id2name_tbl t_key2file[] = {
 static int key_build_path(char *ptr)
 {
 	char *home = NULL;
+	char *dir = NULL;
 
 	memset(ptr, 0, 256);
+
+	dir = getenv("SONY_KEYS");
+	if (dir != NULL) {
+		strncpy(ptr, dir, 256);
+		return 0;
+	}
 
 	home = getenv("HOME");
 	if (home == NULL)

@@ -16,6 +16,8 @@
 
 #ifdef WIN32
 #include "mingw_mmap.h"
+#include <windows.h>
+#include <wincrypt.h>
 #else
 #include <sys/mman.h>
 #endif
@@ -51,7 +53,7 @@ void memcpy_to_file(const char *fname, u8 *ptr, u64 size)
 {
 	FILE *fp;
 
-	fp = fopen(fname, "w");
+	fp = fopen(fname, "wb");
 	fwrite(ptr, size, 1, fp);
 	fclose(fp);
 }
@@ -107,6 +109,20 @@ const char *id2name(u32 id, struct id2name_tbl *t, const char *unk)
 	return unk;
 }
 
+#ifdef WIN32
+void get_rand(u8 *bfr, u32 size)
+{
+	HCRYPTPROV hProv;
+
+	if (!CryptAcquireContext(&hProv, NULL, NULL, PROV_RSA_FULL, CRYPT_VERIFYCONTEXT))
+		fail("unable to open random");
+
+	if (!CryptGenRandom(hProv, size, bfr))
+		fail("unable to read random numbers");
+
+	CryptReleaseContext(hProv, 0);
+}
+#else
 void get_rand(u8 *bfr, u32 size)
 {
 	FILE *fp;
@@ -120,6 +136,7 @@ void get_rand(u8 *bfr, u32 size)
 
 	fclose(fp);
 }
+#endif
 
 //
 // ELF helpers
@@ -138,7 +155,7 @@ int elf_read_hdr(u8 *hdr, struct elf_hdr *h)
 	hdr += 2;
 	h->e_version = be32(hdr);
 	hdr += 4;
-	
+
 	if (arch64) {
 		h->e_entry = be64(hdr);
 		h->e_phoff = be64(hdr + 8);
@@ -180,7 +197,7 @@ void elf_read_phdr(int arch64, u8 *phdr, struct elf_phdr *p)
 		p->p_filesz = be64(phdr + 4*8);
 		p->p_memsz =  be64(phdr + 5*8);
 		p->p_align =  be64(phdr + 6*8);
-	} else {	
+	} else {
 		p->p_type =   be32(phdr + 0*4);
 		p->p_off =    be32(phdr + 1*4);
 		p->p_vaddr =  be32(phdr + 2*4);
@@ -313,7 +330,7 @@ void aes128ctr(u8 *key, u8 *iv, u8 *in, u64 len, u8 *out)
 	for (i = 0; i < len; i++) {
 		if ((i & 0xf) == 0) {
 			AES_encrypt(iv, ctr, &k);
-	
+
 			// increase nonce
 			tmp = be64(iv + 8) + 1;
 			wbe64(iv + 8, tmp);
@@ -372,7 +389,7 @@ void sha1_hmac(u8 *key, u8 *data, u32 len, u8 *digest)
 	sha1(tmp, sizeof tmp, digest);
 
 }
-	
+
 static struct id2name_tbl t_key2file[] = {
 	{KEY_LV0, "lv0"},
 	{KEY_LV1, "lv1"},
@@ -406,7 +423,7 @@ static int key_read(const char *path, u32 len, u8 *dst)
 	u32 read;
 	int ret = -1;
 
-	fp = fopen(path, "r");
+	fp = fopen(path, "rb");
 	if (fp == NULL)
 		goto fail;
 
@@ -469,10 +486,10 @@ struct keylist *keys_get(enum sce_key type)
 
 			snprintf(path, sizeof path, "%s/%s-key-%s", base, name, id);
 			key_read(path, 32, klist->keys[klist->n].key);
-	
+
 			snprintf(path, sizeof path, "%s/%s-iv-%s", base, name, id);
 			key_read(path, 16, klist->keys[klist->n].iv);
-	
+
 			klist->keys[klist->n].pub_avail = -1;
 			klist->keys[klist->n].priv_avail = -1;
 
@@ -539,7 +556,7 @@ int key_get(enum sce_key type, const char *suffix, struct key *k)
 	snprintf(path, sizeof path, "%s/%s-key-%s", base, name, suffix);
 	if (key_read(path, 32, k->key) < 0)
 		return -1;
-	
+
 	snprintf(path, sizeof path, "%s/%s-iv-%s", base, name, suffix);
 	if (key_read(path, 16, k->iv) < 0)
 		return -1;
@@ -547,7 +564,7 @@ int key_get(enum sce_key type, const char *suffix, struct key *k)
 	k->pub_avail = k->priv_avail = 1;
 
 	snprintf(path, sizeof path, "%s/%s-ctype-%s", base, name, suffix);
-	if (key_read(path, 4, tmp) < 0) { 
+	if (key_read(path, 4, tmp) < 0) {
 		k->pub_avail = k->priv_avail = -1;
 		return 0;
 	}
@@ -563,7 +580,7 @@ int key_get(enum sce_key type, const char *suffix, struct key *k)
 		k->priv_avail = -1;
 
 	return 0;
-}	
+}
 
 static void memcpy_inv(u8 *dst, u8 *src, u32 len)
 {
@@ -620,13 +637,13 @@ int sce_decrypt_header(u8 *ptr, struct keylist *klist)
 			  klist->keys[i].iv,
 			  ptr + meta_offset + 0x20,
 			  0x40,
-			  tmp); 
+			  tmp);
 
 		success = 1;
 		for (j = 0x10; j < (0x10 + 0x10); j++)
 			if (tmp[j] != 0)
 				success = 0;
-	
+
 		for (j = 0x30; j < (0x30 + 0x10); j++)
 			if (tmp[j] != 0)
 			       success = 0;

@@ -279,8 +279,6 @@ static void calculate_hashes(void)
 	keys = self + meta_offset + 0x80 + (0x30 * ehdr.e_phnum);
 
 	for (i = 0; i < ehdr.e_phnum; i++) {
-		printf("%d\n", i);
-		printf("%08x\n", phdr[i].p_off);
 		memset(keys + (i * 8 * 0x10), 0, 0x20);
 		sha1_hmac(keys + ((i * 8) + 2) * 0x10,
 		          elf + phdr[i].p_off,
@@ -298,7 +296,7 @@ static void build_hdr(void)
 	memcpy(self + ctrl_offset, ctrl_header, sizeof ctrl_header);
 	memcpy(self + sec_offset, sec_header, sec_header_size);
 	memcpy(self + phdr_offset, elf + ehdr.e_phoff, ehdr.e_phnum * ehdr.e_phentsize);
-	memcpy(self + shdr_offset, elf + ehdr.e_shoff, ehdr.e_shnum * ehdr.e_shentsize);
+//	memcpy(self + shdr_offset, elf + ehdr.e_shoff, ehdr.e_shnum * ehdr.e_shentsize);
 	memcpy(self + meta_offset, meta_header, meta_header_size);
 	memcpy(self + elf_offset, elf, ehdr.e_ehsize);
 	memcpy(self + header_size, elf, elf_size);
@@ -414,14 +412,15 @@ int main(int argc, char *argv[])
 	parse_elf();
 
 	info_offset = 0x70;
-	version_offset = round_up(info_offset + 0x20, ALIGNMENT);
-	ctrl_offset = round_up(version_offset + 0x10, ALIGNMENT);
-	sec_offset = round_up(ctrl_offset + 0x70, ALIGNMENT);
-	elf_offset = round_up(sec_offset + ehdr.e_phnum * 0x20, ALIGNMENT);
+
+	elf_offset = info_offset + 0x20;
 	phdr_offset = round_up(elf_offset + ehdr.e_ehsize, ALIGNMENT);	
-	shdr_offset = round_up(phdr_offset + ehdr.e_phentsize * ehdr.e_phnum, ALIGNMENT);	
-	meta_offset = round_up(shdr_offset + ehdr.e_shentsize * ehdr.e_shnum, ALIGNMENT);
+	sec_offset = round_up(phdr_offset + ehdr.e_phentsize * ehdr.e_phnum, ALIGNMENT);
+	version_offset = round_up(sec_offset + ehdr.e_phnum *  0x20, ALIGNMENT);
+	ctrl_offset = round_up(version_offset + 0x10, ALIGNMENT);
+	meta_offset = round_up(ctrl_offset + 0x70, ALIGNMENT);
 	header_size = round_up(meta_offset + 0x80 + ehdr.e_phnum * (0x30 + 0x20 + 0x60) + 0x30, 0x80);
+	shdr_offset = ehdr.e_shoff + header_size;
 
 	build_sce_hdr();
 	build_info_hdr();

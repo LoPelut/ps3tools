@@ -38,6 +38,7 @@ static u32 meta_header_size;
 static u64 header_size;
 static u32 meta_offset;
 static u64 elf_size;
+static u64 compressed_size;
 static u64 info_offset;
 static u64 version_offset;
 static u64 elf_offset;
@@ -385,6 +386,8 @@ static void compress_elf(void)
 			offset = round_up(offset + phdr_map[i].size, ALIGNMENT);
 		}
 	}
+
+	compressed_size = phdr_map[i - 1].offset + phdr_map[i - 1].size;
 }
 
 static void fill_phdr_map(void)
@@ -398,6 +401,8 @@ static void fill_phdr_map(void)
 		phdr_map[i].size = phdr[i].p_filesz;
 		phdr[i].ptr = NULL;
 	}
+
+	compressed_size = elf_size;
 }
 
 static void sign_hdr(void)
@@ -574,11 +579,11 @@ int main(int argc, char *argv[])
 	if (fp == NULL)
 		fail("fopen(%s) failed", self_name);
 
-	if (fwrite(self, header_size + elf_size, 1, fp) != 1)
+	if (fwrite(self, header_size + compressed_size, 1, fp) != 1)
 		fail("unable to write self");
 
 	memset(bfr, 0, sizeof bfr);
-	fwrite(bfr, round_up(elf_size, ALIGNMENT) - elf_size, 1, fp);
+	fwrite(bfr, round_up(compressed_size, ALIGNMENT) - compressed_size, 1, fp);
 
 	fclose(fp);
 

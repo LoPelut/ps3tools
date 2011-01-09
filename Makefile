@@ -1,6 +1,6 @@
 TOOLS	=	readself pupunpack unself sceverify scekrit
 TOOLS	+=	makeself norunpack puppack unpkg pkg
-TOOLS	+=	cosunpkg cospkg
+TOOLS	+=	cosunpkg cospkg ungpkg
 COMMON	=	tools.o aes.o sha1.o ec.o bn.o
 DEPS	=	Makefile tools.h types.h
 

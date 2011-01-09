@@ -251,6 +251,7 @@ static void build_meta_hdr(void)
 
 	// area covered by the signature
 	wbe64(ptr + 0x00, meta_offset + meta_header_size - 0x30);
+
 	wbe32(ptr + 0x08, 1);
 	wbe32(ptr + 0x0c, ehdr.e_phnum);	// number of encrypted headers
 	wbe32(ptr + 0x10, ehdr.e_phnum * 8);	// number of keys/hashes required
@@ -411,23 +412,23 @@ int main(int argc, char *argv[])
 
 	parse_elf();
 
+	meta_header_size = 0x80 + ehdr.e_phnum * (0x30 + 0x20 + 0x60) + 0x30;
 	info_offset = 0x70;
-
-	elf_offset = info_offset + 0x20;
-	phdr_offset = round_up(elf_offset + ehdr.e_ehsize, ALIGNMENT);	
+	elf_offset = 0x90;
+	phdr_offset = elf_offset + ehdr.e_ehsize;
 	sec_offset = round_up(phdr_offset + ehdr.e_phentsize * ehdr.e_phnum, ALIGNMENT);
 	version_offset = round_up(sec_offset + ehdr.e_phnum *  0x20, ALIGNMENT);
 	ctrl_offset = round_up(version_offset + 0x10, ALIGNMENT);
 	meta_offset = round_up(ctrl_offset + 0x70, ALIGNMENT);
-	header_size = round_up(meta_offset + 0x80 + ehdr.e_phnum * (0x30 + 0x20 + 0x60) + 0x30, 0x80);
+	header_size = round_up(meta_offset + meta_header_size, 0x80);
 	shdr_offset = ehdr.e_shoff + header_size;
 
 	build_sce_hdr();
 	build_info_hdr();
 	build_ctrl_hdr();
 	build_sec_hdr();
-	build_meta_hdr();
 	build_version_hdr();
+	build_meta_hdr();
 
 	self = malloc(header_size + elf_size);
 	memset(self, 0, header_size + elf_size);

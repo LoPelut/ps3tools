@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <limits.h>
 #include <sys/stat.h>
+#include <zlib.h>
 
 #define	ALIGNMENT	0x20
 #define	MAX_PHDR	255
@@ -50,6 +51,17 @@ static u64 vendor_id;
 static u16 sdk_type;
 
 struct key ks;
+
+static const char *elf_name = NULL;
+static const char *self_name = NULL;
+static int compression = 0;
+
+static struct {
+	u64 offset;
+	u64 size;
+	u8 *ptr;
+	int compressed;
+} phdr_map[MAX_PHDR];
 
 static void get_type(const char *p)
 {
@@ -186,9 +198,14 @@ static void build_sec_hdr(void)
 	for (i = 0; i < ehdr.e_phnum; i++) {
 		ptr = sec_header + i * 0x20;
 
-		wbe64(ptr + 0x00, phdr[i].p_off + header_size);
-		wbe64(ptr + 0x08, phdr[i].p_filesz);
-		wbe32(ptr + 0x10, 1);		// not compressed
+		wbe64(ptr + 0x00, phdr_map[i].offset);
+		wbe64(ptr + 0x08, phdr_map[i].size);
+
+		if (phdr_map[i].compressed == 1)
+			wbe32(ptr + 0x10, 2);
+		else
+			wbe32(ptr + 0x10, 1);
+
 		wbe32(ptr + 0x14, 0);		// unknown
 		wbe32(ptr + 0x18, 0);		// unknown
 
@@ -201,8 +218,8 @@ static void build_sec_hdr(void)
 
 static void meta_add_phdr(u8 *ptr, u32 i)
 {
-	wbe64(ptr + 0x00, phdr[i].p_off + header_size);
-	wbe64(ptr + 0x08, phdr[i].p_filesz);
+	wbe64(ptr + 0x00, phdr_map[i].offset);
+	wbe64(ptr + 0x08, phdr_map[i].size);
 
 	// unknown
 	wbe32(ptr + 0x10, 2);
@@ -218,8 +235,8 @@ static void meta_add_phdr(u8 *ptr, u32 i)
 
 static void meta_add_load(u8 *ptr, u32 i)
 {
-	wbe64(ptr + 0x00, phdr[i].p_off + header_size);
-	wbe64(ptr + 0x08, phdr[i].p_filesz);
+	wbe64(ptr + 0x00, phdr_map[i].offset);
+	wbe64(ptr + 0x08, phdr_map[i].size);
 
 	// unknown
 	wbe32(ptr + 0x10, 2);
@@ -230,7 +247,11 @@ static void meta_add_load(u8 *ptr, u32 i)
 	wbe32(ptr + 0x20, 3);		// phdr is encrypted
 	wbe32(ptr + 0x24, (i*8) + 6);	// key index
 	wbe32(ptr + 0x28, (i*8) + 7);	// iv index
-	wbe32(ptr + 0x2c, 1);		// not compressed
+
+	if (phdr_map[i].compressed == 1)
+		wbe32(ptr + 0x2c, 2);
+	else
+		wbe32(ptr + 0x2c, 1);
 }
 
 static void build_meta_hdr(void)
@@ -282,8 +303,8 @@ static void calculate_hashes(void)
 	for (i = 0; i < ehdr.e_phnum; i++) {
 		memset(keys + (i * 8 * 0x10), 0, 0x20);
 		sha1_hmac(keys + ((i * 8) + 2) * 0x10,
-		          elf + phdr[i].p_off,
-			  phdr[i].p_filesz,
+		          self + phdr_map[i].offset,
+			  phdr_map[i].size,
 			  keys + (i * 8) * 0x10
 			 );
 	}	
@@ -300,7 +321,83 @@ static void build_hdr(void)
 //	memcpy(self + shdr_offset, elf + ehdr.e_shoff, ehdr.e_shnum * ehdr.e_shentsize);
 	memcpy(self + meta_offset, meta_header, meta_header_size);
 	memcpy(self + elf_offset, elf, ehdr.e_ehsize);
-	memcpy(self + header_size, elf, elf_size);
+}
+
+static void write_elf(void)
+{
+	u32 i;
+
+	if (compression) {
+		for (i = 0; i < ehdr.e_phnum; i++) {
+			memcpy(self + phdr_map[i].offset,
+			       phdr_map[i].ptr,
+			       phdr_map[i].size);
+		}
+	} else {
+		memcpy(self + header_size, elf, elf_size);
+	}
+}
+
+static void compress_elf(void)
+{
+	u32 i;
+	u64 offset;
+	uLongf size_zlib;
+	int res;
+	u64 size_compressed;
+
+	offset = header_size;
+
+	for (i = 0; i < ehdr.e_phnum; i++) {
+		phdr_map[i].offset = offset;
+	
+		if (phdr[i].p_type != 1) {
+			phdr_map[i].ptr = elf + phdr[i].p_off;
+			phdr_map[i].size = phdr[i].p_filesz;
+			phdr_map[i].compressed = 0;
+			offset = round_up(offset + phdr[i].p_filesz, 0x20);
+			continue;
+		}	
+
+		size_compressed = compressBound(phdr[i].p_filesz);
+		size_zlib = size_compressed;
+
+		phdr_map[i].ptr = malloc(size_compressed);
+		if (!phdr_map[i].ptr)
+			fail("out of memory");
+
+		res = compress(phdr_map[i].ptr, &size_zlib,
+		               elf + phdr[i].p_off, phdr[i].p_filesz);
+
+		if (size_zlib >= phdr[i].p_filesz) {
+			free(phdr_map[i].ptr);
+			phdr_map[i].ptr = elf + phdr[i].p_off;
+			phdr_map[i].size = phdr[i].p_filesz;
+			phdr_map[i].compressed = 0;
+			offset = round_up(offset + phdr[i].p_filesz, ALIGNMENT);
+		} else {
+			phdr_map[i].ptr = realloc(phdr_map[i].ptr, size_zlib);
+			if (phdr_map[i].ptr == NULL)
+				fail("out of memory");
+
+			phdr_map[i].size = size_zlib;
+			phdr_map[i].compressed = 1;
+			offset = round_up(offset + phdr_map[i].size, ALIGNMENT);
+		}
+	}
+}
+
+static void fill_phdr_map(void)
+{
+	u32 i;
+
+	memset(phdr_map, 0, sizeof phdr_map);
+
+	for (i = 0; i < ehdr.e_phnum; i++) {
+		phdr_map[i].offset = phdr[i].p_off;
+		phdr_map[i].size = phdr[i].p_filesz;
+		phdr[i].ptr = NULL;
+	}
 }
 
 static void sign_hdr(void)
@@ -392,23 +489,50 @@ static void get_sdktype(char * t)
 	sdk_type = strtoul(t, NULL, 10);
 }
 
+static void get_args(int argc, char *argv[])
+{
+	u32 i;
+
+	if (argc != 9 && argc != 10)
+		fail("usage: makeself [-c] [type] [version suffix] [version] [vendor id] [auth id] [sdk type] [elf] [self]");
+
+	i = 1;
+
+	if (argc == 10) {
+		if (strcmp(argv[1], "-c") != 0)
+			fail("invalid option: %s", argv[1]);
+		compression = 1;
+		i++;
+	}
+
+	get_type(argv[i++]);
+	get_keys(argv[i++]);
+	get_version(argv[i++]);
+	get_vendor(argv[i++]);
+	get_auth(argv[i++]);
+	get_sdktype(argv[i++]);
+
+	elf_name = argv[i++];
+	self_name = argv[i++];
+
+	if (compression) {
+		if (type == KEY_ISO)
+			fail("no compression support for isolated modules");
+		if (type == KEY_LDR)
+			fail("no compression support for secure loaders");
+	}
+}
+
+
 int main(int argc, char *argv[])
 {
 	FILE *fp;
 	u8 bfr[ALIGNMENT];
 
-	if (argc != 9)
-		fail("usage: makeself [type] [version suffix] [version] [vendor id] [auth id] [sdk type] [elf] [self]");
+	get_args(argc, argv);
 
-	get_type(argv[1]);
-	get_keys(argv[2]);
-	get_version(argv[3]);
-	get_vendor(argv[4]);
-	get_auth(argv[5]);
-	get_sdktype(argv[6]);
-
-	elf_size = get_filesize(argv[7]);
-	elf = mmap_file(argv[7]);
+	elf_size = get_filesize(elf_name);
+	elf = mmap_file(elf_name);
 
 	parse_elf();
 
@@ -423,6 +547,11 @@ int main(int argc, char *argv[])
 	header_size = round_up(meta_offset + meta_header_size, 0x80);
 	shdr_offset = ehdr.e_shoff + header_size;
 
+	if (compression)
+		compress_elf();
+	else
+		fill_phdr_map();
+
 	build_sce_hdr();
 	build_info_hdr();
 	build_ctrl_hdr();
@@ -436,13 +565,14 @@ int main(int argc, char *argv[])
 	build_hdr();
 	calculate_hashes();
 	sign_hdr();
+	write_elf();
 
 	sce_encrypt_data(self);
 	sce_encrypt_header(self, &ks);
 
-	fp = fopen(argv[8], "wb");
+	fp = fopen(self_name, "wb");
 	if (fp == NULL)
-		fail("fopen(%s) failed", argv[4]);
+		fail("fopen(%s) failed", self_name);
 
 	if (fwrite(self, header_size + elf_size, 1, fp) != 1)
 		fail("unable to write self");

@@ -230,11 +230,12 @@ static void check_elf(void)
 	u16 n_phdr;
 	u16 n_shdr;
 	const char shstrtab[] = ".unknown\0\0";
+	const char elf_magic[4] = {0x7f, 'E', 'L', 'F'};
 
 	fseek(out, 0, SEEK_SET);
 	fread(bfr, 4, 1, out);
 
-	if (memcmp(bfr, "\7fELF", 4) == 0)
+	if (memcmp(bfr, elf_magic, sizeof elf_magic) == 0)
 		return;
 
 	elf_offset =  be64(self + 0x30);

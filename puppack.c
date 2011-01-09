@@ -1,7 +1,9 @@
 // Copyright 2010       Sven Peter <svenpeter@gmail.com>
 // Licensed under the terms of the GNU GPL, version 2
 // http://www.gnu.org/licenses/old-licenses/gpl-2.0.txt
+
 #include <stdio.h>
+#include <stdlib.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <string.h>
@@ -15,6 +17,7 @@ static u8 pup_hmac[0x40];
 static u8 hdr[0x30 + 0x40 * MAX_FILES + 0x20];
 static u64 n_files;
 static u64 data_size;
+static u64 build = 0xfa11;
 
 static struct {
 	u8 *ptr;
@@ -81,7 +84,7 @@ static void build_header(void)
 	memcpy(hdr, "SCEUF\0\0\0", 8);
 
 	wbe64(hdr + 0x08, 1);
-	wbe64(hdr + 0x10, 0xf411);
+	wbe64(hdr + 0x10, build);
 	wbe64(hdr + 0x18, n_files);
 	wbe64(hdr + 0x20, 0x50 + n_files * 0x40);
 	wbe64(hdr + 0x28, data_size);
@@ -117,7 +120,10 @@ static void write_pup(void)
 int main(int argc, char *argv[])
 {
 	if (argc < 3)
-		fail("usage: puppack filename.pup directory");
+		fail("usage: puppack filename.pup directory [build number]");
+
+	if (argc == 4)
+		build = atoi(argv[3]);
 
 	if (key_get_simple("pup-hmac", pup_hmac, sizeof pup_hmac) < 0)
 		fail("pup hmac key not available");

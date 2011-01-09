@@ -10,8 +10,10 @@
 
 #ifdef WIN32
 #define MKDIR(x,y) mkdir(x)
+#define UINT64_FMT "I64u"
 #else
 #define MKDIR(x,y) mkdir(x,y)
+#define UINT64_FMT "llu"
 #endif
 
 static u8 *pup = NULL;
@@ -110,12 +112,7 @@ static void do_pup(void)
 	hdr_size   = be64(pup + 0x20);
 	data_size  = be64(pup + 0x28);
 
-#ifdef WIN32
-	printf("sections:    %I64d\n", n_sections);
-#else
-	printf("sections:    %lld\n", n_sections);
-#endif
-
+	printf("sections:    %" UINT64_FMT "\n", n_sections);
 	printf("hdr size:    %08x_%08x\n", (u32)(hdr_size >> 32), (u32)hdr_size);
 	printf("data size:   %08x_%08x\n", (u32)(data_size >> 32), (u32)data_size);
 	printf("header hmac: ");

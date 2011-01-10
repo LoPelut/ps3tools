@@ -334,6 +334,7 @@ static void write_elf(void)
 			       phdr_map[i].ptr,
 			       phdr_map[i].size);
 		}
+		memcpy(self + shdr_offset, elf + ehdr.e_shoff, ehdr.e_shnum * ehdr.e_shentsize);
 	} else {
 		memcpy(self + header_size, elf, elf_size);
 	}
@@ -397,8 +398,9 @@ static void fill_phdr_map(void)
 	memset(phdr_map, 0, sizeof phdr_map);
 
 	for (i = 0; i < ehdr.e_phnum; i++) {
-		phdr_map[i].offset = phdr[i].p_off;
+		phdr_map[i].offset = phdr[i].p_off + header_size;
 		phdr_map[i].size = phdr[i].p_filesz;
+		phdr_map[i].compressed = 0;
 		phdr[i].ptr = NULL;
 	}
 
@@ -550,12 +552,14 @@ int main(int argc, char *argv[])
 	ctrl_offset = round_up(version_offset + 0x10, ALIGNMENT);
 	meta_offset = round_up(ctrl_offset + 0x70, ALIGNMENT);
 	header_size = round_up(meta_offset + meta_header_size, 0x80);
-	shdr_offset = ehdr.e_shoff + header_size;
 
 	if (compression)
 		compress_elf();
 	else
 		fill_phdr_map();
+
+	shdr_offset = compressed_size;
+	compressed_size += ehdr.e_shentsize * ehdr.e_shnum;
 
 	build_sce_hdr();
 	build_info_hdr();
@@ -568,9 +572,9 @@ int main(int argc, char *argv[])
 	memset(self, 0, header_size + elf_size);
 
 	build_hdr();
+	write_elf();
 	calculate_hashes();
 	sign_hdr();
-	write_elf();
 
 	sce_encrypt_data(self);
 	sce_encrypt_header(self, &ks);

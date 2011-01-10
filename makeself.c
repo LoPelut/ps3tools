@@ -389,6 +389,8 @@ static void compress_elf(void)
 	}
 
 	compressed_size = phdr_map[i - 1].offset + phdr_map[i - 1].size;
+	shdr_offset = compressed_size;
+	compressed_size += ehdr.e_shentsize * ehdr.e_shnum;
 }
 
 static void fill_phdr_map(void)
@@ -405,6 +407,7 @@ static void fill_phdr_map(void)
 	}
 
 	compressed_size = elf_size;
+	shdr_offset = ehdr.e_shoff + header_size;
 }
 
 static void sign_hdr(void)
@@ -557,10 +560,7 @@ int main(int argc, char *argv[])
 		compress_elf();
 	else
 		fill_phdr_map();
-
-	shdr_offset = compressed_size;
-	compressed_size += ehdr.e_shentsize * ehdr.e_shnum;
-
+	
 	build_sce_hdr();
 	build_info_hdr();
 	build_ctrl_hdr();

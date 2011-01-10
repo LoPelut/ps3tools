@@ -350,6 +350,9 @@ int main(int argc, char *argv[])
 
 	self = mmap_file(argv[1]);
 
+	if (be32(self) != 0x53434500)
+		fail("not a SELF");
+
 	read_header();
 	read_sections();
 

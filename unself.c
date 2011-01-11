@@ -81,7 +81,7 @@ static void read_section(u32 i, struct self_sec *sec)
 	sec->offset     = be64(ptr + 0x00);
 	sec->size       = be64(ptr + 0x08);
 	sec->compressed = be32(ptr + 0x10) == 2 ? 1 : 0;
-	sec->encrypted  = be32(ptr + 0x20);
+	sec->encrypted  = be32(ptr + 0x1c);
 	sec->next       = be64(ptr + 0x20);
 }
 

@@ -152,7 +152,7 @@ static void build_info_hdr(void)
 			app_type = 6;
 			break;
 		default:
-			fail("something that should never fail failed.");	
+			fail("something that should never fail failed.");
 	}
 
 	wbe64(info_header + 0x00, auth_id);
@@ -192,7 +192,7 @@ static void build_sec_hdr(void)
 		wbe32(ptr + 0x14, 0);		// unknown
 		wbe32(ptr + 0x18, 0);		// unknown
 
-		if (phdr[i].p_type == 1) 
+		if (phdr[i].p_type == 1)
 			wbe32(ptr + 0x1c, 1);	// encrypted LOAD phdr
 		else
 			wbe32(ptr + 0x1c, 0);	// no loadable phdr
@@ -260,7 +260,7 @@ static void build_meta_hdr(void)
 
 	// add encrypted phdr information
 	for (i = 0; i < ehdr.e_phnum; i++) {
-		if (phdr[i].p_type == 1) 
+		if (phdr[i].p_type == 1)
 			meta_add_load(ptr, i);
 		else
 			meta_add_phdr(ptr, i);
@@ -286,7 +286,7 @@ static void calculate_hashes(void)
 			  phdr[i].p_filesz,
 			  keys + (i * 8) * 0x10
 			 );
-	}	
+	}
 }
 
 static void build_hdr(void)
@@ -363,7 +363,7 @@ static void get_version(const char *v)
 			ptr++;
 			continue;
 		}
-	
+
 		fprintf(stderr, "WARNING: invalid sdk_version, using 1.0.0\n");
 		version = 1ULL << 48;
 		return;

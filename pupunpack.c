@@ -5,6 +5,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <string.h>
+#include <inttypes.h>
 
 #include "tools.h"
 
@@ -37,7 +38,7 @@ static struct id2name_tbl t_names[] = {
 static int check_hmac(u8 *hmac, u8 *bfr, u64 len)
 {
 	u8 calc[0x14];
-	
+
 	if (hmac == NULL)
 		return 1;
 
@@ -105,12 +106,12 @@ static void do_pup(void)
 	u64 data_size;
 	u64 i;
 	int res;
-	
+
 	n_sections = be64(pup + 0x18);
 	hdr_size   = be64(pup + 0x20);
 	data_size  = be64(pup + 0x28);
 
-	printf("sections:    %lld\n", n_sections);
+	printf("sections:    %" PRIu64 "\n", n_sections);
 	printf("hdr size:    %08x_%08x\n", (u32)(hdr_size >> 32), (u32)hdr_size);
 	printf("data size:   %08x_%08x\n", (u32)(data_size >> 32), (u32)data_size);
 	printf("header hmac: ");

@@ -178,7 +178,7 @@ static void write_elf(void)
 				fail("failed to allocate %d bytes", size);
 
 			offset += size;
-	
+
 			decompress(self + self_sections[i].offset,
 			           self_sections[i].size,
 				   bfr, size);
@@ -188,7 +188,7 @@ static void write_elf(void)
 			bfr = self + self_sections[i].offset;
 			size = self_sections[i].size;
 			offset += size;
-	
+
 			fwrite(bfr, size, 1, out);
 		}
 	}
@@ -279,7 +279,7 @@ static void check_elf(void)
 		shstrtab_offset = shdr_offset_new + n_shdr * 0x40;
 
 		remove_shnames(shdr_offset, n_shdr, shstrtab_offset, sizeof shstrtab);
-	
+
 		fseek(out, phdr_offset_new, SEEK_SET);
 		fwrite(elf + phdr_offset, 0x20, n_phdr, out);
 
@@ -311,7 +311,7 @@ static struct keylist *self_load_keys(void)
 		case 3:
 			id = KEY_LV2;
 			break;
-		case 4:	
+		case 4:
 			id = KEY_APP;
 			break;
 		case 5:
@@ -321,7 +321,7 @@ static struct keylist *self_load_keys(void)
 			id = KEY_LDR;
 			break;
 		default:
-			fail("invalid type: %08x", app_type);	
+			fail("invalid type: %08x", app_type);
 	}
 
 	return keys_get(id);
@@ -355,7 +355,7 @@ int main(int argc, char *argv[])
 	if (key_ver != 0x8000)
 		self_decrypt();
 
-	out = fopen(argv[2], "w+");
+	out = fopen(argv[2], "wb+");
 
 	write_elf();
 	check_elf();

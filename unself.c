@@ -230,11 +230,12 @@ static void check_elf(void)
 	u16 n_phdr;
 	u16 n_shdr;
 	const char shstrtab[] = ".unknown\0\0";
+	const char elf_magic[4] = {0x7f, 'E', 'L', 'F'};
 
 	fseek(out, 0, SEEK_SET);
 	fread(bfr, 4, 1, out);
 
-	if (memcmp(bfr, "\7fELF", 4) == 0)
+	if (memcmp(bfr, elf_magic, sizeof elf_magic) == 0)
 		return;
 
 	elf_offset =  be64(self + 0x30);
@@ -348,6 +349,9 @@ int main(int argc, char *argv[])
 		fail("usage: unself in.self out.elf");
 
 	self = mmap_file(argv[1]);
+
+	if (be32(self) != 0x53434500)
+		fail("not a SELF");
 
 	read_header();
 	read_sections();
